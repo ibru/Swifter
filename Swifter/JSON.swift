@@ -128,7 +128,7 @@ public enum JSON : Equatable, Printable {
                 }
                 self = .JSONObject(newDict)
                 
-            case let string as NSString:
+            case let string as String:
                 self = .JSONString(string)
                 
             case let number as NSNumber:
