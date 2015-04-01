@@ -31,8 +31,9 @@ import Foundation
     import AppKit
 #endif
 
-public extension Swifter {
 
+public extension Swifter {
+    
     public typealias TokenSuccessHandler = (accessToken: SwifterCredential.OAuthAccessToken?, response: NSURLResponse) -> Void
 
     public func authorizeWithCallbackURL(callbackURL: NSURL, success: TokenSuccessHandler, failure: ((error: NSError) -> Void)?) {
@@ -61,13 +62,16 @@ public extension Swifter {
                 })
 
             let authorizeURL = NSURL(string: "/oauth/authorize", relativeToURL: self.apiURL)
-            let queryURL = NSURL(string: authorizeURL!.absoluteString! + "?oauth_token=\(token!.key)")
+            let queryURL = NSURL(string: authorizeURL!.absoluteString! + "?oauth_token=\(token!.key)")!
 
-            #if os(iOS)
-                UIApplication.sharedApplication().openURL(queryURL!)
-            #else
-                NSWorkspace.sharedWorkspace().openURL(queryURL!)
-            #endif
+            let shouldOpen = self.delegate?.swifter(self, shouldOpenAuthURL: queryURL) ?? true
+            if shouldOpen {
+                #if os(iOS)
+                    UIApplication.sharedApplication().openURL(queryURL)
+                #else
+                    NSWorkspace.sharedWorkspace().openURL(queryURL)
+                #endif
+            }
             }, failure: failure)
     }
 

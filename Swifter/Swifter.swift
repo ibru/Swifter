@@ -26,6 +26,10 @@
 import Foundation
 import Accounts
 
+public protocol SwifterDelegate {
+    func swifter(swifter: Swifter, shouldOpenAuthURL authURL: NSURL) -> Bool
+}
+
 public class Swifter {
 
     // MARK: - Types
@@ -58,6 +62,8 @@ public class Swifter {
 
     public var client: SwifterClientProtocol
 
+    public var delegate: SwifterDelegate?
+    
     // MARK: - Initializers
 
     public convenience init(consumerKey: String, consumerSecret: String) {
