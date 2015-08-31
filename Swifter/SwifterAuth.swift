@@ -62,7 +62,7 @@ public extension Swifter {
                 })
 
             let authorizeURL = NSURL(string: "/oauth/authorize", relativeToURL: self.apiURL)
-            let queryURL = NSURL(string: authorizeURL!.absoluteString! + "?oauth_token=\(token!.key)")!
+            let queryURL = NSURL(string: authorizeURL!.absoluteString + "?oauth_token=\(token!.key)")!
 
             let shouldOpen = self.delegate?.swifter(self, shouldOpenAuthURL: queryURL) ?? true
             if shouldOpen {
@@ -146,9 +146,8 @@ public extension Swifter {
 
         var parameters =  Dictionary<String, AnyObject>()
 
-        if let callbackURLString = callbackURL.absoluteString {
-            parameters["oauth_callback"] = callbackURLString
-        }
+        let callbackURLString = callbackURL.absoluteString
+        parameters["oauth_callback"] = callbackURLString
 
         self.client.post(path, baseURL: self.apiURL, parameters: parameters, uploadProgress: nil, downloadProgress: nil, success: {
             data, response in
