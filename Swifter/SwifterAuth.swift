@@ -36,7 +36,7 @@ public extension Swifter {
     
     public typealias TokenSuccessHandler = (accessToken: SwifterCredential.OAuthAccessToken?, response: NSURLResponse) -> Void
 
-    public func authorizeWithCallbackURL(callbackURL: NSURL, success: TokenSuccessHandler, failure: ((error: NSError) -> Void)?) {
+    public func authorizeWithCallbackURL(callbackURL: NSURL, success: TokenSuccessHandler?, failure: ((error: NSError) -> Void)? = nil, openQueryURL: ((url: NSURL) -> Void)?, closeQueryURL:(() -> Void)? = nil) {
         self.postOAuthRequestTokenWithCallbackURL(callbackURL, success: {
             token, response in
 
@@ -47,6 +47,8 @@ public extension Swifter {
 
                 NSNotificationCenter.defaultCenter().removeObserver(self)
 
+                closeQueryURL?()
+
                 let url = notification.userInfo![CallbackNotification.optionsURLKey] as! NSURL
 
                 let parameters = url.query!.parametersFromQueryString()
@@ -56,13 +58,13 @@ public extension Swifter {
                     accessToken, response in
 
                     self.client.credential = SwifterCredential(accessToken: accessToken!)
-                    success(accessToken: accessToken!, response: response)
+                    success?(accessToken: accessToken!, response: response)
 
                     }, failure: failure)
                 })
 
             let authorizeURL = NSURL(string: "/oauth/authorize", relativeToURL: self.apiURL)
-            let queryURL = NSURL(string: authorizeURL!.absoluteString! + "?oauth_token=\(token!.key)")!
+            let queryURL = NSURL(string: authorizeURL!.absoluteString + "?oauth_token=\(token!.key)")!
 
             let shouldOpen = self.delegate?.swifter(self, shouldOpenAuthURL: queryURL) ?? true
             if shouldOpen {
@@ -72,6 +74,7 @@ public extension Swifter {
                     NSWorkspace.sharedWorkspace().openURL(queryURL)
                 #endif
             }
+            
             }, failure: failure)
     }
 
@@ -115,16 +118,16 @@ public extension Swifter {
     public func postOAuth2BearerTokenWithSuccess(success: JSONSuccessHandler?, failure: FailureHandler?) {
         let path = "/oauth2/token"
 
-        var parameters = Dictionary<String, AnyObject>()
+        var parameters = Dictionary<String, Any>()
         parameters["grant_type"] = "client_credentials"
 
-        self.jsonRequestWithPath(path, baseURL: self.apiURL, method: "POST", parameters: parameters, uploadProgress: nil, downloadProgress: nil, success: success, failure: failure)
+        self.jsonRequestWithPath(path, baseURL: self.apiURL, method: "POST", parameters: parameters, success: success, failure: failure)
     }
 
     public func postOAuth2InvalidateBearerTokenWithSuccess(success: TokenSuccessHandler?, failure: FailureHandler?) {
         let path = "/oauth2/invalidate_token"
 
-        self.jsonRequestWithPath(path, baseURL: self.apiURL, method: "POST", parameters: [:], uploadProgress: nil, downloadProgress: nil, success: {
+        self.jsonRequestWithPath(path, baseURL: self.apiURL, method: "POST", parameters: [:], success: {
             json, response in
 
             if let accessToken = json["access_token"].string {
@@ -144,17 +147,15 @@ public extension Swifter {
     public func postOAuthRequestTokenWithCallbackURL(callbackURL: NSURL, success: TokenSuccessHandler, failure: FailureHandler?) {
         let path = "/oauth/request_token"
 
-        var parameters =  Dictionary<String, AnyObject>()
+        var parameters =  Dictionary<String, Any>()
 
-        if let callbackURLString = callbackURL.absoluteString {
-            parameters["oauth_callback"] = callbackURLString
-        }
+        parameters["oauth_callback"] = callbackURL.absoluteString
 
         self.client.post(path, baseURL: self.apiURL, parameters: parameters, uploadProgress: nil, downloadProgress: nil, success: {
             data, response in
 
             let responseString = NSString(data: data, encoding: NSUTF8StringEncoding)
-            let accessToken = SwifterCredential.OAuthAccessToken(queryString: responseString as! String)
+            let accessToken = SwifterCredential.OAuthAccessToken(queryString: responseString as String!)
             success(accessToken: accessToken, response: response)
 
             }, failure: failure)
@@ -164,7 +165,7 @@ public extension Swifter {
         if let verifier = requestToken.verifier {
             let path =  "/oauth/access_token"
 
-            var parameters = Dictionary<String, AnyObject>()
+            var parameters = Dictionary<String, Any>()
             parameters["oauth_token"] = requestToken.key
             parameters["oauth_verifier"] = verifier
 

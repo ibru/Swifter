@@ -37,9 +37,9 @@ public class Swifter {
     public typealias JSONSuccessHandler = (json: JSON, response: NSHTTPURLResponse) -> Void
     public typealias FailureHandler = (error: NSError) -> Void
 
-    internal struct CallbackNotification {
-        static let notificationName = "SwifterCallbackNotificationName"
-        static let optionsURLKey = "SwifterCallbackNotificationOptionsURLKey"
+    public struct CallbackNotification {
+        public static let notificationName = "SwifterCallbackNotificationName"
+        public static let optionsURLKey = "SwifterCallbackNotificationOptionsURLKey"
     }
 
     internal struct SwifterError {
@@ -111,7 +111,7 @@ public class Swifter {
 
     // MARK: - JSON Requests
 
-    internal func jsonRequestWithPath(path: String, baseURL: NSURL, method: String, parameters: Dictionary<String, AnyObject>, uploadProgress: SwifterHTTPRequest.UploadProgressHandler?, downloadProgress: JSONSuccessHandler?, success: JSONSuccessHandler?, failure: SwifterHTTPRequest.FailureHandler?) -> SwifterHTTPRequest {
+    internal func jsonRequestWithPath(path: String, baseURL: NSURL, method: String, parameters: Dictionary<String, Any>, uploadProgress: SwifterHTTPRequest.UploadProgressHandler? = nil, downloadProgress: JSONSuccessHandler? = nil, success: JSONSuccessHandler? = nil, failure: SwifterHTTPRequest.FailureHandler? = nil) -> SwifterHTTPRequest {
         let jsonDownloadProgressHandler: SwifterHTTPRequest.DownloadProgressHandler = {
             data, _, _, response in
 
@@ -119,27 +119,32 @@ public class Swifter {
                 return
             }
 
-            var error: NSError?
-            if let jsonResult = JSON.parseJSONData(data, error: &error) {
+            do {
+                let jsonResult = try JSON.parseJSONData(data)
                 downloadProgress?(json: jsonResult, response: response)
-            }
-            else {
+            } catch _ as NSError {
+                
                 let jsonString = NSString(data: data, encoding: NSUTF8StringEncoding)
                 let jsonChunks = jsonString!.componentsSeparatedByString("\r\n") as! [String]
 
                 for chunk in jsonChunks {
-                    if count(chunk.utf16) == 0 {
+                    if chunk.utf16.count == 0 {
                         continue
                     }
 
-                    let chunkData = chunk.dataUsingEncoding(NSUTF8StringEncoding)
-
-                    if let jsonResult = JSON.parseJSONData(data, error: &error)  {
-                        if let downloadProgress = downloadProgress {
-                            downloadProgress(json: jsonResult, response: response)
+                    if let chunkData = chunk.dataUsingEncoding(NSUTF8StringEncoding) {
+                        do {
+                            let jsonResult = try JSON.parseJSONData(chunkData)
+                            downloadProgress?(json: jsonResult, response: response)
+                        } catch _ as NSError {
+                            
+                        } catch {
+                            fatalError()
                         }
                     }
                 }
+            } catch {
+                fatalError()
             }
         }
 
@@ -148,19 +153,22 @@ public class Swifter {
 
             dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0)) {
                 var error: NSError?
-                if let jsonResult = JSON.parseJSONData(data, error: &error) {
+                do {
+                    let jsonResult = try JSON.parseJSONData(data)
                     dispatch_async(dispatch_get_main_queue()) {
                         if let success = success {
                             success(json: jsonResult, response: response)
                         }
                     }
-                }
-                else {
+                } catch let error1 as NSError {
+                    error = error1
                     dispatch_async(dispatch_get_main_queue()) {
                         if let failure = failure {
                             failure(error: error!)
                         }
                     }
+                } catch {
+                    fatalError()
                 }
             }
         }
@@ -173,11 +181,11 @@ public class Swifter {
         }
     }
 
-    internal func getJSONWithPath(path: String, baseURL: NSURL, parameters: Dictionary<String, AnyObject>, uploadProgress: SwifterHTTPRequest.UploadProgressHandler?, downloadProgress: JSONSuccessHandler?, success: JSONSuccessHandler?, failure: SwifterHTTPRequest.FailureHandler?) -> SwifterHTTPRequest {
+    internal func getJSONWithPath(path: String, baseURL: NSURL, parameters: Dictionary<String, Any>, uploadProgress: SwifterHTTPRequest.UploadProgressHandler?, downloadProgress: JSONSuccessHandler?, success: JSONSuccessHandler?, failure: SwifterHTTPRequest.FailureHandler?) -> SwifterHTTPRequest {
         return self.jsonRequestWithPath(path, baseURL: baseURL, method: "GET", parameters: parameters, uploadProgress: uploadProgress, downloadProgress: downloadProgress, success: success, failure: failure)
     }
 
-    internal func postJSONWithPath(path: String, baseURL: NSURL, parameters: Dictionary<String, AnyObject>, uploadProgress: SwifterHTTPRequest.UploadProgressHandler?, downloadProgress: JSONSuccessHandler?, success: JSONSuccessHandler?, failure: SwifterHTTPRequest.FailureHandler?) -> SwifterHTTPRequest {
+    internal func postJSONWithPath(path: String, baseURL: NSURL, parameters: Dictionary<String, Any>, uploadProgress: SwifterHTTPRequest.UploadProgressHandler?, downloadProgress: JSONSuccessHandler?, success: JSONSuccessHandler?, failure: SwifterHTTPRequest.FailureHandler?) -> SwifterHTTPRequest {
         return self.jsonRequestWithPath(path, baseURL: baseURL, method: "POST", parameters: parameters, uploadProgress: uploadProgress, downloadProgress: downloadProgress, success: success, failure: failure)
     }
     
